@@ -8,7 +8,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-func authEndpoint(ctx context.Context, collection *mongo.Collection) gin.HandlerFunc {
+func AuthEndpoint(ctx context.Context, collection *mongo.Collection) gin.HandlerFunc {
 	fn := func(c *gin.Context) {
 		type authRequestBody struct {
 			MachineId string `json:"machineid"`
@@ -26,7 +26,7 @@ func authEndpoint(ctx context.Context, collection *mongo.Collection) gin.Handler
 				"error": "key or machine id missing",
 			})
 		} else {
-			authResult := authenticateKey(ctx, collection, requestBody.Key, requestBody.MachineId)
+			authResult := AuthenticateKey(ctx, collection, requestBody.Key, requestBody.MachineId)
 			if authResult {
 				c.JSON(http.StatusOK, gin.H{
 					"message": "success",
@@ -42,10 +42,10 @@ func authEndpoint(ctx context.Context, collection *mongo.Collection) gin.Handler
 
 	return gin.HandlerFunc(fn)
 }
-func resetEndpoint(ctx context.Context, collection *mongo.Collection) gin.HandlerFunc {
+func ResetEndpoint(ctx context.Context, collection *mongo.Collection) gin.HandlerFunc {
 	fn := func(c *gin.Context) {
 		key := c.Param("key")
-		resetMessage, status := resetKey(ctx, collection, key)
+		resetMessage, status := ResetKey(ctx, collection, key)
 		c.JSON(status, gin.H{
 			"message": resetMessage,
 		})
@@ -53,10 +53,10 @@ func resetEndpoint(ctx context.Context, collection *mongo.Collection) gin.Handle
 	}
 	return fn
 }
-func deleteEndpoint(ctx context.Context, collection *mongo.Collection) gin.HandlerFunc {
+func DeleteEndpoint(ctx context.Context, collection *mongo.Collection) gin.HandlerFunc {
 	fn := func(c *gin.Context) {
 		key := c.Param("key")
-		resetMessage, status := deleteKey(ctx, collection, key)
+		resetMessage, status := DeleteKey(ctx, collection, key)
 		c.JSON(status, gin.H{
 			"message": resetMessage,
 		})
@@ -64,9 +64,9 @@ func deleteEndpoint(ctx context.Context, collection *mongo.Collection) gin.Handl
 	}
 	return fn
 }
-func generateKeyEndpoint(collection *mongo.Collection) gin.HandlerFunc {
+func GenerateKeyEndpoint(collection *mongo.Collection) gin.HandlerFunc {
 	fn := func(c *gin.Context) {
-		genkeymessage, status, errormessage := generateKey(collection)
+		genkeymessage, status, errormessage := GenerateKey(collection)
 		c.JSON(status, gin.H{
 			"key":   genkeymessage,
 			"error": errormessage,
@@ -75,7 +75,7 @@ func generateKeyEndpoint(collection *mongo.Collection) gin.HandlerFunc {
 	}
 	return fn
 }
-func setUserEndpoint(ctx context.Context, collection *mongo.Collection) gin.HandlerFunc {
+func SetUserEndpoint(ctx context.Context, collection *mongo.Collection) gin.HandlerFunc {
 	fn := func(c *gin.Context) {
 		type setUserRequestBody struct {
 			User int64  `json:"user"`
@@ -92,7 +92,7 @@ func setUserEndpoint(ctx context.Context, collection *mongo.Collection) gin.Hand
 				"error": "key or user id missing",
 			})
 		} else {
-			message, status := setUser(ctx, collection, requestBody.Key, requestBody.User)
+			message, status := SetUser(ctx, collection, requestBody.Key, requestBody.User)
 
 			c.IndentedJSON(status, gin.H{
 				"message": message,
@@ -103,9 +103,9 @@ func setUserEndpoint(ctx context.Context, collection *mongo.Collection) gin.Hand
 	}
 	return fn
 }
-func allKeysEndpoint(ctx context.Context, collection *mongo.Collection) gin.HandlerFunc {
+func AllKeysEndpoint(ctx context.Context, collection *mongo.Collection) gin.HandlerFunc {
 	fn := func(c *gin.Context) {
-		res, status := getAllKeys(ctx, collection)
+		res, status := GetAllKeys(ctx, collection)
 		c.JSON(status, res)
 	}
 	return fn

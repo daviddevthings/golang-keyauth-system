@@ -18,7 +18,7 @@ type Key struct {
 	MachineId string `json:"machineid"`
 }
 
-func getAllKeys(ctx context.Context, coll *mongo.Collection) ([]Key, int) {
+func GetAllKeys(ctx context.Context, coll *mongo.Collection) ([]Key, int) {
 	cursor, currErr := coll.Find(ctx, bson.D{})
 
 	if currErr != nil {
@@ -32,7 +32,7 @@ func getAllKeys(ctx context.Context, coll *mongo.Collection) ([]Key, int) {
 	return keys, http.StatusOK
 }
 
-func generateKey(coll *mongo.Collection) (Key, int, string) {
+func GenerateKey(coll *mongo.Collection) (Key, int, string) {
 	rand.Seed(time.Now().UnixNano())
 	var letters = []byte("ABCDEFGHIJKLMNOPQRSTUVWXYZ123456789")
 	b := make([]byte, 24)
@@ -51,7 +51,7 @@ func generateKey(coll *mongo.Collection) (Key, int, string) {
 	}
 	return newKey, http.StatusOK, "none"
 }
-func deleteKey(ctx context.Context, coll *mongo.Collection, k string) (string, int) {
+func DeleteKey(ctx context.Context, coll *mongo.Collection, k string) (string, int) {
 	filter := bson.D{{Key: "key", Value: k}}
 	result, err := coll.DeleteOne(ctx, filter)
 	if err != nil {
@@ -65,7 +65,7 @@ func deleteKey(ctx context.Context, coll *mongo.Collection, k string) (string, i
 	}
 
 }
-func resetKey(ctx context.Context, coll *mongo.Collection, k string) (string, int) {
+func ResetKey(ctx context.Context, coll *mongo.Collection, k string) (string, int) {
 	filter := bson.D{{Key: "key", Value: k}}
 	update := bson.D{{Key: "$set", Value: bson.D{{Key: "machineid", Value: "none"}}}}
 
@@ -81,7 +81,7 @@ func resetKey(ctx context.Context, coll *mongo.Collection, k string) (string, in
 	}
 
 }
-func setUser(ctx context.Context, coll *mongo.Collection, k string, u int64) (string, int) {
+func SetUser(ctx context.Context, coll *mongo.Collection, k string, u int64) (string, int) {
 	filter := bson.D{{Key: "key", Value: k}}
 	update := bson.D{{Key: "$set", Value: bson.D{{Key: "user", Value: u}}}}
 
@@ -96,7 +96,7 @@ func setUser(ctx context.Context, coll *mongo.Collection, k string, u int64) (st
 	}
 
 }
-func authenticateKey(ctx context.Context, coll *mongo.Collection, k string, mID string) bool {
+func AuthenticateKey(ctx context.Context, coll *mongo.Collection, k string, mID string) bool {
 	filter := bson.D{{Key: "key", Value: k}}
 	var result bson.D
 	err := coll.FindOne(ctx, filter).Decode(&result)
