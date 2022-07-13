@@ -1,15 +1,23 @@
 package main
 
-import "fmt"
+import (
+	"net/http"
+
+	"github.com/gin-gonic/gin"
+)
 
 func main() {
 	client, ctx := connectToDb("mongodb://localhost:27017")
 	defer client.Disconnect(ctx)
 	collection := client.Database("golangauth").Collection("keys")
-	// generateKey(collection)
-	// deleteKey(ctx, collection, "F94FNP75GNIMQ6GF978B84O9")
-	// resetKey(ctx, collection, "F94FNP75GNIMQ6GF978B84O9")
-	// setUser(ctx, collection, "S894V1LG5BM7DV82JV7Y7SIH", 448884623888351242)
-	// getAllKeys(ctx, collection)
-	fmt.Println(authenticateKey(ctx, collection, "S894V1LG5BM7DV82JV7Y7SIH", ""))
+	r := gin.Default()
+	r.GET("/allkeys", func(c *gin.Context) {
+		c.JSON(http.StatusOK, getAllKeys(ctx, collection))
+	})
+	r.POST("/auth", authEndpoint(ctx, collection))
+	r.GET("/reset/:key", resetEndpoint(ctx, collection))
+	r.GET("/delete/:key", deleteEndpoint(ctx, collection))
+	r.GET("/genkey", generateKeyEndpoint(collection))
+	r.POST("/setuser", setUserEndpoint(ctx, collection))
+	r.Run()
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"net/http"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -11,14 +12,13 @@ import (
 )
 
 type Key struct {
-	Key            string `json:"key"`
-	Timestamp      int64  `json:"timestamp"`
-	User           int64  `json:"user"`
-	MachineId      string `json:"machineid"`
-	BoundToMachine bool   `json:"boundtomachine"`
+	Key       string `json:"key"`
+	Timestamp int64  `json:"timestamp"`
+	User      int64  `json:"user"`
+	MachineId string `json:"machineid"`
 }
 
-func getAllKeys(ctx context.Context, coll *mongo.Collection) {
+func getAllKeys(ctx context.Context, coll *mongo.Collection) []Key {
 	cursor, currErr := coll.Find(ctx, bson.D{})
 
 	if currErr != nil {
@@ -27,13 +27,12 @@ func getAllKeys(ctx context.Context, coll *mongo.Collection) {
 	defer cursor.Close(ctx)
 	var keys []Key
 	if err := cursor.All(ctx, &keys); err != nil {
-		fmt.Println(err)
-		return
+		return []Key{}
 	}
-	fmt.Println(keys)
+	return keys
 }
 
-func generateKey(coll *mongo.Collection) {
+func generateKey(coll *mongo.Collection) (Key, int, string) {
 	rand.Seed(time.Now().UnixNano())
 	var letters = []byte("ABCDEFGHIJKLMNOPQRSTUVWXYZ123456789")
 	b := make([]byte, 24)
@@ -41,78 +40,59 @@ func generateKey(coll *mongo.Collection) {
 		b[i] = letters[rand.Intn(len(letters))]
 	}
 	newKey := Key{
-		Key:            string(b),
-		Timestamp:      time.Now().Unix(),
-		User:           -1,
-		MachineId:      "",
-		BoundToMachine: false,
+		Key:       string(b),
+		Timestamp: time.Now().UnixNano(),
+		User:      -1,
+		MachineId: "none",
 	}
 	_, err := coll.InsertOne(context.TODO(), newKey)
-	fmt.Printf("Added new key %s to the database", string(b))
 	if err != nil {
-		fmt.Println(err)
-		return
+		return Key{}, http.StatusInternalServerError, "error generating key"
 	}
+	return newKey, http.StatusOK, "none"
 }
-func deleteKey(ctx context.Context, coll *mongo.Collection, k string) {
+func deleteKey(ctx context.Context, coll *mongo.Collection, k string) (string, int) {
 	filter := bson.D{{Key: "key", Value: k}}
 	result, err := coll.DeleteOne(ctx, filter)
 	if err != nil {
-		fmt.Println(err)
-		return
+
+		return "Error deleting key", http.StatusInternalServerError
 	}
 	if result.DeletedCount == 0 {
-		fmt.Printf("Key %s does not exist", k)
+		return fmt.Sprintf("Key %s does not exist", k), http.StatusNotFound
 	} else {
-		fmt.Printf("Deleted key %s from the database", k)
+		return fmt.Sprintf("Deleted key %s from the database", k), http.StatusOK
 	}
 
 }
-func resetKey(ctx context.Context, coll *mongo.Collection, k string) {
+func resetKey(ctx context.Context, coll *mongo.Collection, k string) (string, int) {
 	filter := bson.D{{Key: "key", Value: k}}
-	update := bson.D{{Key: "$set", Value: bson.D{{Key: "boundtomachine", Value: false}, {Key: "machineid", Value: ""}}}}
+	update := bson.D{{Key: "$set", Value: bson.D{{Key: "machineid", Value: "none"}}}}
 
 	result, err := coll.UpdateOne(ctx, filter, update)
 	if err != nil {
-		fmt.Println(err)
-		return
+
+		return "error resetting key", http.StatusInternalServerError
 	}
 	if result.MatchedCount == 0 {
-		fmt.Printf("Key %s does not exist", k)
+		return fmt.Sprintf("Key %s does not exist", k), http.StatusNotFound
 	} else {
-		fmt.Printf("Key %s was successfully reset", k)
+		return fmt.Sprintf("Key %s was successfully reset", k), http.StatusOK
 	}
 
 }
-func bindKey(ctx context.Context, coll *mongo.Collection, k string, mID string) {
-	filter := bson.D{{Key: "key", Value: k}}
-	update := bson.D{{Key: "$set", Value: bson.D{{Key: "boundtomachine", Value: true}, {Key: "machineid", Value: mID}}}}
-
-	result, err := coll.UpdateOne(ctx, filter, update)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	if result.MatchedCount == 0 {
-		fmt.Printf("Key %s does not exist", k)
-	} else {
-		fmt.Printf("Key %s was successfully bound to machine %s", k, mID)
-	}
-
-}
-func setUser(ctx context.Context, coll *mongo.Collection, k string, u int64) {
+func setUser(ctx context.Context, coll *mongo.Collection, k string, u int64) (string, int) {
 	filter := bson.D{{Key: "key", Value: k}}
 	update := bson.D{{Key: "$set", Value: bson.D{{Key: "user", Value: u}}}}
 
 	result, err := coll.UpdateOne(ctx, filter, update)
 	if err != nil {
-		fmt.Println(err)
-		return
+		return "Error setting user", http.StatusInternalServerError
 	}
 	if result.MatchedCount == 0 {
-		fmt.Printf("Key %s does not exist", k)
+		return fmt.Sprintf("Key %s does not exist", k), http.StatusNotFound
 	} else {
-		fmt.Printf("User for key %s was successfully set", k)
+		return fmt.Sprintf("User for key %s was successfully set", k), http.StatusOK
 	}
 
 }
@@ -121,11 +101,20 @@ func authenticateKey(ctx context.Context, coll *mongo.Collection, k string, mID 
 	var result bson.D
 	err := coll.FindOne(ctx, filter).Decode(&result)
 	if err != nil {
-		fmt.Println("Key not found")
+		//key not found
 		return false
 	}
-	if result.Map()["machineid"] != mID {
-		fmt.Println("Machine id doesn't matche one in the database")
+	if result.Map()["machineid"] == "none" {
+		filter := bson.D{{Key: "key", Value: k}}
+		update := bson.D{{Key: "$set", Value: bson.D{{Key: "machineid", Value: mID}}}}
+		_, err := coll.UpdateOne(ctx, filter, update)
+		if err != nil {
+			//error updating
+			return false
+		}
+		return true
+	} else if result.Map()["machineid"] != mID {
+		//Machine id doesn't matche one in the database
 		return false
 	}
 	return true
