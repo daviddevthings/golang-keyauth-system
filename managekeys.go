@@ -18,7 +18,7 @@ type Key struct {
 	MachineId string `json:"machineid"`
 }
 
-func getAllKeys(ctx context.Context, coll *mongo.Collection) []Key {
+func getAllKeys(ctx context.Context, coll *mongo.Collection) ([]Key, int) {
 	cursor, currErr := coll.Find(ctx, bson.D{})
 
 	if currErr != nil {
@@ -27,9 +27,9 @@ func getAllKeys(ctx context.Context, coll *mongo.Collection) []Key {
 	defer cursor.Close(ctx)
 	var keys []Key
 	if err := cursor.All(ctx, &keys); err != nil {
-		return []Key{}
+		return []Key{}, http.StatusInternalServerError
 	}
-	return keys
+	return keys, http.StatusOK
 }
 
 func generateKey(coll *mongo.Collection) (Key, int, string) {

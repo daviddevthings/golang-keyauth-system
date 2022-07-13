@@ -103,3 +103,10 @@ func setUserEndpoint(ctx context.Context, collection *mongo.Collection) gin.Hand
 	}
 	return fn
 }
+func allKeysEndpoint(ctx context.Context, collection *mongo.Collection) gin.HandlerFunc {
+	fn := func(c *gin.Context) {
+		res, status := getAllKeys(ctx, collection)
+		c.JSON(status, res)
+	}
+	return fn
+}
